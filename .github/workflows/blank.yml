@@ -6,39 +6,20 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            name: TGTools-Windows
-            output: dist/TGTools.exe
-            ext: exe
-          - os: macos-latest
-            name: TGTools-Mac
-            output: dist/TGTools
-            ext: bin
-
-    runs-on: ${{ matrix.os }}
-
+  build-windows:
+    runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install dependencies
+      - name: Install
         run: pip install telethon customtkinter pillow qrcode pyinstaller
-
-      - name: Build (Windows)
-        if: runner.os == 'Windows'
+      - name: Build
         run: |
           pyinstaller `
             --onefile `
-            --windowed `
+            --noconsole `
             --name "TGTools" `
             --hidden-import telethon `
             --hidden-import customtkinter `
@@ -46,12 +27,24 @@ jobs:
             --hidden-import qrcode `
             --collect-all customtkinter `
             app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TGTools-Windows
+          path: dist/TGTools.exe
+          retention-days: 30
 
-      - name: Build (macOS)
-        if: runner.os == 'macOS'
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install telethon customtkinter pillow qrcode pyinstaller
+      - name: Build .app bundle
         run: |
           pyinstaller \
-            --onefile \
             --windowed \
             --name "TGTools" \
             --hidden-import telethon \
@@ -60,10 +53,10 @@ jobs:
             --hidden-import qrcode \
             --collect-all customtkinter \
             app.py
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Zip .app
+        run: cd dist && zip -r TGTools-Mac.zip TGTools.app
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
-          path: ${{ matrix.output }}
+          name: TGTools-Mac
+          path: dist/TGTools-Mac.zip
           retention-days: 30
