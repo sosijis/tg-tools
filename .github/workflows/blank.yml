@@ -1,36 +1,69 @@
-# This is a basic workflow to help you get started with Actions
+name: Build TGTools
 
-name: CI
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-  # Allows you to run this workflow manually from the Actions tab
+    branches: [ main ]
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: TGTools-Windows
+            output: dist/TGTools.exe
+            ext: exe
+          - os: macos-latest
+            name: TGTools-Mac
+            output: dist/TGTools
+            ext: bin
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    runs-on: ${{ matrix.os }}
+
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Install dependencies
+        run: pip install telethon customtkinter pillow qrcode pyinstaller
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          pyinstaller `
+            --onefile `
+            --windowed `
+            --name "TGTools" `
+            --hidden-import telethon `
+            --hidden-import customtkinter `
+            --hidden-import PIL `
+            --hidden-import qrcode `
+            --collect-all customtkinter `
+            app.py
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller \
+            --onefile \
+            --windowed \
+            --name "TGTools" \
+            --hidden-import telethon \
+            --hidden-import customtkinter \
+            --hidden-import PIL \
+            --hidden-import qrcode \
+            --collect-all customtkinter \
+            app.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.output }}
+          retention-days: 30
